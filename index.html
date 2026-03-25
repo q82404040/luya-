@@ -3,27 +3,22 @@
 <head>
 <meta charset="utf-8">
 <style>
-body{margin:0;display:flex;height:100vh;font-family:sans-serif;background:#1e1e1e;color:#eee}
-.panel{width:320px;background:#2b2b2b;padding:10px;overflow:auto;border-right:1px solid #444}
-.btn{width:100%;padding:8px;margin:4px 0;background:#3a3a3a;border:none;color:#fff;border-radius:6px;cursor:pointer}
-.canvasBox{flex:1;display:flex;align-items:center;justify-content:center;background:#111}
+body{margin:0;display:flex;height:100vh;background:#1e1e1e;color:#eee;font-family:sans-serif}
+.panel{width:300px;background:#2b2b2b;padding:10px;overflow:auto}
+.btn{width:100%;padding:8px;margin:4px 0;background:#3a3a3a;border:none;color:#fff;border-radius:6px}
+.canvasBox{flex:1;display:flex;align-items:center;justify-content:center}
+canvas{background:transparent}
 </style>
 </head>
 
 <body>
 
 <div class="panel">
-<h3>配色系统</h3>
-
-<button class="btn" onclick="setTheme('classic')">传统风水</button>
-<button class="btn" onclick="setTheme('dark')">现代暗黑</button>
-
-<hr>
+<h3>陆压罗盘</h3>
 
 <button class="btn" onclick="addLayer()">➕ 添加层</button>
 
 <div id="layersUI"></div>
-
 </div>
 
 <div class="canvasBox">
@@ -36,74 +31,42 @@ const x=c.getContext("2d")
 c.width=900
 c.height=900
 
-let theme="classic"
+let scale=1
+let offsetX=0
+let offsetY=0
 
 let state={
 layers:[
-{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:18,w:60},
-{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,w:50}
+{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:18,color:"#000",w:60},
+{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000",w:50}
 ]
 }
 
-// 🎨 自动配色系统
-function getColor(i,total){
-if(theme==="classic"){
-let base=50 + i*(180/total)
-return `hsl(${base},60%,70%)`
-}else{
-let light=20 + i*(60/total)
-return `hsl(0,0%,${light}%)`
-}
-}
-
-// 自动文字颜色
-function getTextColor(bg){
-let temp=document.createElement("div")
-temp.style.color=bg
-document.body.appendChild(temp)
-let rgb=getComputedStyle(temp).color
-document.body.removeChild(temp)
-
-let nums=rgb.match(/\d+/g).map(Number)
-let brightness=(nums[0]*299+nums[1]*587+nums[2]*114)/1000
-return brightness<128 ? "#fff" : "#000"
-}
-
-// UI
 function buildUI(){
-const box=document.getElementById("layersUI")
+let box=document.getElementById("layersUI")
 box.innerHTML=""
-
 state.layers.forEach((l,i)=>{
 box.innerHTML+=`
-<div style="background:#333;padding:8px;margin:10px 0;border-radius:8px">
+<div style="background:#333;padding:6px;margin:6px 0;border-radius:6px">
 第${i+1}层
-<br>分割 <input value="${l.n}" onchange="state.layers[${i}].n=this.value">
-<br>厚度 <input value="${l.w}" onchange="state.layers[${i}].w=this.value">
-<br>文字
-<textarea onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
+<input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+<input value="${l.w}" onchange="state.layers[${i}].w=this.value">
 </div>
 `
 })
 }
-
 buildUI()
 
 function addLayer(){
-state.layers.push({n:12,data:"",w:50,size:12})
+state.layers.push({n:12,data:"",size:12,color:"#000",w:50})
 buildUI()
 }
 
-function setTheme(t){
-theme=t
-}
-
-// 旋转
-let r=0
-c.onmousemove=e=>{
-if(e.buttons){
-r+=0.01
-}
+// 缩放（核心）
+c.onwheel=e=>{
+e.preventDefault()
+let zoom = e.deltaY<0 ? 1.1 : 0.9
+scale*=zoom
 }
 
 // 绘制
@@ -112,40 +75,33 @@ requestAnimationFrame(draw)
 
 x.clearRect(0,0,900,900)
 
-// 白底
-x.beginPath()
-x.arc(450,450,420,0,Math.PI*2)
-x.fillStyle="#fff"
-x.fill()
-
 x.save()
+
+// 缩放 + 平移
 x.translate(450,450)
-x.rotate(r)
+x.scale(scale,scale)
 x.translate(-450,-450)
 
 let inner=80
 
-state.layers.forEach((l,i)=>{
+state.layers.forEach(l=>{
 let outer=inner+l.w
-
-let color=getColor(i,state.layers.length)
-let textColor=getTextColor(color)
-
-x.fillStyle=color
-x.beginPath()
-x.arc(450,450,outer,0,Math.PI*2)
-x.arc(450,450,inner,0,Math.PI*2,true)
-x.fill()
-
 let arr=l.data.split(",")
 let step=Math.PI*2/l.n
 
-x.fillStyle=textColor
-x.font=l.size+"px serif"
+x.strokeStyle="rgba(0,0,0,0.6)"
+x.lineWidth=1
 
-for(let j=0;j<l.n;j++){
-let a=j*step-Math.PI/2
+for(let i=0;i<l.n;i++){
+let a=i*step-Math.PI/2
 
+// 分割线
+x.beginPath()
+x.moveTo(450+Math.cos(a)*inner,450+Math.sin(a)*inner)
+x.lineTo(450+Math.cos(a)*outer,450+Math.sin(a)*outer)
+x.stroke()
+
+// 文字
 let mid=(inner+outer)/2
 let tx=450+Math.cos(a+step/2)*mid
 let ty=450+Math.sin(a+step/2)*mid
@@ -158,11 +114,18 @@ angle+=Math.PI
 x.save()
 x.translate(tx,ty)
 x.rotate(angle+Math.PI/2)
+x.fillStyle=l.color
+x.font=l.size+"px serif"
 x.textAlign="center"
 x.textBaseline="middle"
-x.fillText(arr[j]||"",0,0)
+x.fillText(arr[i]||"",0,0)
 x.restore()
 }
+
+// 圆环
+x.beginPath()
+x.arc(450,450,outer,0,Math.PI*2)
+x.stroke()
 
 inner=outer
 })
