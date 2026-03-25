@@ -1,24 +1,21 @@
 <!DOCTYPE html>
 <html>
-<body style="margin:0;display:flex;font-family:sans-serif;background:#f5f5f5">
+<body style="margin:0;display:flex;font-family:sans-serif;background:#f3f3f3">
 
-<!-- 左侧控制 -->
-<div style="width:320px;padding:12px;background:#fff;border-right:1px solid #ddd;overflow:auto;height:100vh">
+<!-- 控制面板 -->
+<div style="width:320px;background:#fff;padding:10px;border-right:1px solid #ddd;height:100vh;overflow:auto">
 
-<h3>罗盘制作工具</h3>
+<h3>罗盘工具</h3>
 
-<button onclick="addLayer()" style="width:100%;margin-bottom:10px">➕ 添加层</button>
+<button onclick="addLayer()" style="width:100%">➕ 添加层</button>
 
 <div id="layersUI"></div>
 
 <hr>
 
-<button onclick="save()" style="width:48%">保存</button>
-<button onclick="load()" style="width:48%">读取</button>
-
-<hr>
-
-<button onclick="exportImg()" style="width:100%">导出图片</button>
+<button onclick="save()">保存</button>
+<button onclick="load()">读取</button>
+<button onclick="exportImg()">导出</button>
 
 </div>
 
@@ -33,14 +30,14 @@ c.height=800
 
 let state={
 layers:[
-{n:8,r:300,data:"乾,兑,离,震,巽,坎,艮,坤"},
-{n:24,r:250,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬"}
+{n:8,r:300,data:"乾,兑,离,震,巽,坎,艮,坤",size:16,color:"#000"},
+{n:24,r:250,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000"}
 ]
 }
 
 // 添加层
 function addLayer(){
-state.layers.push({n:12,r:200,data:""})
+state.layers.push({n:12,r:200,data:"",size:12,color:"#000"})
 buildUI()
 }
 
@@ -57,17 +54,17 @@ box.innerHTML=""
 
 state.layers.forEach((l,i)=>{
 box.innerHTML+=`
-<div style="background:#fafafa;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px">
+<div style="border:1px solid #ddd;border-radius:6px;padding:8px;margin:10px 0;background:#fafafa">
 <b>第${i+1}层</b>
 <button onclick="removeLayer(${i})" style="float:right">删除</button>
 
-<br>分割：
-<input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+<br>分割 <input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+<br>半径 <input value="${l.r}" onchange="state.layers[${i}].r=this.value">
 
-<br>半径：
-<input value="${l.r}" onchange="state.layers[${i}].r=this.value">
+<br>字体 <input value="${l.size}" onchange="state.layers[${i}].size=this.value">
+<br>颜色 <input value="${l.color}" onchange="state.layers[${i}].color=this.value">
 
-<br>文字：
+<br>文字
 <textarea style="width:100%" onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
 </div>
 `
@@ -76,7 +73,7 @@ box.innerHTML+=`
 
 buildUI()
 
-// 旋转控制
+// 旋转
 let r=0,v=0,d=false,last=0
 
 c.onmousedown=e=>{
@@ -105,58 +102,58 @@ x.translate(400,400)
 x.rotate(r)
 x.translate(-400,-400)
 
-// 👉 核心修复：环形分层绘制（不重叠）
-let inner = 0
+let inner=0
 
 state.layers.forEach(l=>{
-let outer = l.r
-let arr = l.data.split(",")
-let step = Math.PI*2/l.n
+let outer=l.r
+let arr=l.data.split(",")
+let step=Math.PI*2/l.n
 
+x.strokeStyle="#000"
+x.fillStyle=l.color
+x.font=l.size+"px sans-serif"
+
+// 分割
 for(let i=0;i<l.n;i++){
-let a = i*step - Math.PI/2
+let a=i*step-Math.PI/2
 
-// 分割线（只在当前层）
 x.beginPath()
 x.moveTo(
-400 + Math.cos(a)*inner,
-400 + Math.sin(a)*inner
+400+Math.cos(a)*inner,
+400+Math.sin(a)*inner
 )
 x.lineTo(
-400 + Math.cos(a)*outer,
-400 + Math.sin(a)*outer
+400+Math.cos(a)*outer,
+400+Math.sin(a)*outer
 )
 x.stroke()
 
-// 文字位置（环中间）
-let midR = (inner + outer)/2
-let tx = 400 + Math.cos(a+step/2)*midR
-let ty = 400 + Math.sin(a+step/2)*midR
+// 文字（居中优化）
+let mid=(inner+outer)/2
+let tx=400+Math.cos(a+step/2)*mid
+let ty=400+Math.sin(a+step/2)*mid
 
-x.fillText(arr[i]||"", tx, ty)
+x.textAlign="center"
+x.textBaseline="middle"
+x.fillText(arr[i]||"",tx,ty)
 }
 
-// 圆环边界
+// 圆
 x.beginPath()
 x.arc(400,400,outer,0,Math.PI*2)
 x.stroke()
 
-if(inner>0){
-x.beginPath()
-x.arc(400,400,inner,0,Math.PI*2)
-x.stroke()
-}
-
-inner = outer
+inner=outer
 })
 
 x.restore()
 
-// 指针
+// 👉 单一指针（已修复）
+x.fillStyle="#000"
 x.beginPath()
-x.moveTo(400,60)
-x.lineTo(390,90)
-x.lineTo(410,90)
+x.moveTo(400,80)
+x.lineTo(390,110)
+x.lineTo(410,110)
 x.fill()
 
 // 角度
@@ -166,13 +163,11 @@ x.fillText(deg.toFixed(1)+"°",400,420)
 
 draw()
 
-// 保存
+// 存储
 function save(){
 localStorage.setItem("tool",JSON.stringify(state))
 alert("已保存")
 }
-
-// 读取
 function load(){
 state=JSON.parse(localStorage.getItem("tool"))
 buildUI()
