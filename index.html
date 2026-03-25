@@ -4,8 +4,11 @@
 <meta charset="utf-8">
 <style>
 body{margin:0;display:flex;height:100vh;background:#1e1e1e;font-family:sans-serif}
-.panel{width:260px;background:#2b2b2b;padding:10px;color:#fff}
-.btn{width:100%;padding:8px;margin:4px 0;background:#444;border:none;color:#fff;border-radius:6px}
+.panel{width:320px;background:#2b2b2b;padding:10px;color:#fff;overflow:auto}
+.btn{width:100%;padding:8px;margin:4px 0;background:#444;border:none;color:#fff;border-radius:6px;cursor:pointer}
+textarea{width:100%;margin-top:5px;background:#222;color:#fff;border:1px solid #555}
+.palette{display:flex;gap:6px;margin:6px 0}
+.color{width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid #666}
 .canvasBox{flex:1;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
@@ -13,8 +16,9 @@ body{margin:0;display:flex;height:100vh;background:#1e1e1e;font-family:sans-seri
 <body>
 
 <div class="panel">
-<h3>罗盘工具</h3>
+<h3>罗盘工具（稳定版）</h3>
 <button class="btn" onclick="addLayer()">添加层</button>
+<div id="layersUI"></div>
 <button class="btn" onclick="exportPNG()">导出PNG</button>
 </div>
 
@@ -35,24 +39,68 @@ let offsetY=0
 
 let dragging=false
 let rotating=false
-
 let selected=null
+
+const palette=["#000","#c0392b","#2980b9","#27ae60","#f39c12","#8e44ad"]
 
 let state={
 layers:[
-{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",w:60},
-{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",w:50}
+{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",w:60,color:"#000"},
+{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",w:50,color:"#000"}
 ]
 }
 
-// ===== 字体自适应 =====
-function fitFontSize(ctx,text,maxWidth,maxHeight){
-let size=maxHeight
-ctx.font=size+"px serif"
+// ===== UI =====
+function buildUI(){
+let box=document.getElementById("layersUI")
+box.innerHTML=""
+
+state.layers.forEach((l,i)=>{
+let colors=""
+palette.forEach(col=>{
+colors+=`<div class="color" style="background:${col}" onclick="setColor(${i},'${col}')"></div>`
+})
+
+box.innerHTML+=`
+<div style="background:#333;padding:8px;margin:8px 0;border-radius:6px">
+<b>第${i+1}层</b>
+<button onclick="removeLayer(${i})" style="float:right">✖</button>
+<br>分割 <input value="${l.n}" onchange="updateLayer(${i},'n',this.value)">
+<br>厚度 <input value="${l.w}" onchange="updateLayer(${i},'w',this.value)">
+<div class="palette">${colors}</div>
+<textarea onchange="updateLayer(${i},'data',this.value)">${l.data}</textarea>
+</div>
+`
+})
+}
+
+function updateLayer(i,key,val){
+state.layers[i][key]=key==="data"?val:Number(val)
+}
+
+function setColor(i,col){
+state.layers[i].color=col
+}
+
+function addLayer(){
+state.layers.push({n:12,data:"",w:50,color:"#000"})
+buildUI()
+}
+
+function removeLayer(i){
+state.layers.splice(i,1)
+buildUI()
+}
+
+buildUI()
+
+// ===== 字体适配 =====
+function fitFont(ctx,text,maxW,maxH){
+let size=maxH
 while(size>5){
-if(ctx.measureText(text).width<=maxWidth) break
-size--
 ctx.font=size+"px serif"
+if(ctx.measureText(text).width<=maxW) return size
+size--
 }
 return size
 }
@@ -60,42 +108,41 @@ return size
 // ===== 交互 =====
 c.onwheel=e=>{
 e.preventDefault()
-scale *= e.deltaY<0?1.1:0.9
+scale*=e.deltaY<0?1.1:0.9
 }
 
 c.onmousedown=e=>{
-if(e.button===2){
-rotating=true
-}else{
-dragging=true
-}
+if(e.button===2) rotating=true
+else dragging=true
 }
 
-window.onmouseup=()=>{
-dragging=false
-rotating=false
-}
+window.onmouseup=()=>{dragging=false;rotating=false}
 
 window.onmousemove=e=>{
 if(dragging){
-offsetX+=e.movementX
-offsetY+=e.movementY
+offsetX+=e.movementX*0.9
+offsetY+=e.movementY*0.9
 }
 if(rotating){
-rotation+=e.movementX*0.01
+rotation+=e.movementX*0.008
 }
 }
 
-// 禁止右键菜单
 c.oncontextmenu=e=>e.preventDefault()
 
-// ===== 点击选中 =====
+// ===== 点击修正（考虑旋转）=====
 c.onclick=e=>{
 let x0=(e.offsetX-450-offsetX)/scale
 let y0=(e.offsetY-450-offsetY)/scale
 
-let dist=Math.sqrt(x0*x0+y0*y0)
-let angle=Math.atan2(y0,x0)
+// 逆旋转
+let cos=Math.cos(-rotation)
+let sin=Math.sin(-rotation)
+let rx=x0*cos-y0*sin
+let ry=x0*sin+y0*cos
+
+let dist=Math.sqrt(rx*rx+ry*ry)
+let angle=Math.atan2(ry,rx)
 if(angle<0) angle+=Math.PI*2
 
 let inner=80
@@ -104,8 +151,7 @@ state.layers.forEach((l,li)=>{
 let outer=inner+l.w
 if(dist>inner && dist<outer){
 let step=2*Math.PI/l.n
-let idx=Math.floor(angle/step)
-selected={layer:li,index:idx}
+selected={layer:li,index:Math.floor(angle/step)}
 }
 inner=outer
 })
@@ -121,19 +167,15 @@ ctx.clearRect(0,0,900,900)
 ctx.fillStyle="#fff"
 ctx.fillRect(0,0,900,900)
 
+// ===== 刻度（不随缩放）=====
 ctx.save()
-
-ctx.translate(450+offsetX,450+offsetY)
-ctx.scale(scale,scale)
-ctx.rotate(rotation)
-
-// ===== 刻度环 =====
+ctx.translate(450,450)
 ctx.strokeStyle="#000"
+
 for(let i=0;i<360;i+=10){
 let a=i*Math.PI/180
 let r1=360
 let r2=i%30==0?380:370
-
 ctx.beginPath()
 ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1)
 ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2)
@@ -143,8 +185,14 @@ if(i%90==0){
 ctx.fillText(i+"°",Math.cos(a)*400,Math.sin(a)*400)
 }
 }
+ctx.restore()
 
 // ===== 罗盘 =====
+ctx.save()
+ctx.translate(450+offsetX,450+offsetY)
+ctx.scale(scale,scale)
+ctx.rotate(rotation)
+
 let inner=80
 
 ctx.beginPath()
@@ -156,6 +204,8 @@ let outer=inner+l.w
 let arr=l.data.split(",")
 let step=2*Math.PI/l.n
 
+ctx.fillStyle=l.color
+
 for(let i=0;i<l.n;i++){
 let a=i*step
 
@@ -166,6 +216,7 @@ ctx.beginPath()
 ctx.arc(0,0,outer,a,a+step)
 ctx.arc(0,0,inner,a+step,a,true)
 ctx.fill()
+ctx.fillStyle=l.color
 }
 
 // 分割线
@@ -174,22 +225,17 @@ ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner)
 ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer)
 ctx.stroke()
 
-// ===== 字号自动填满 =====
+// 文字
 let text=arr[i]||""
 let mid=(inner+outer)/2
-let arcLen=step*mid
-let ringH=outer-inner
+let size=fitFont(ctx,text,step*mid*0.9,(outer-inner)*0.9)
 
-let size=fitFontSize(ctx,text,arcLen*0.9,ringH*0.9)
 ctx.font=size+"px serif"
-
-// 文字
 ctx.save()
 ctx.translate(Math.cos(a+step/2)*mid,Math.sin(a+step/2)*mid)
 ctx.rotate(a+step/2+Math.PI/2)
 ctx.textAlign="center"
 ctx.textBaseline="middle"
-ctx.fillStyle="#000"
 ctx.fillText(text,0,0)
 ctx.restore()
 }
@@ -212,10 +258,6 @@ let a=document.createElement("a")
 a.href=c.toDataURL("image/png")
 a.download="罗盘.png"
 a.click()
-}
-
-function addLayer(){
-state.layers.push({n:12,data:"",w:50})
 }
 </script>
 
