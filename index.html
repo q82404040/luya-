@@ -5,25 +5,19 @@
 <style>
 body{margin:0;display:flex;height:100vh;font-family:sans-serif;background:#1e1e1e;color:#eee}
 
+/* 面板 */
 .panel{width:320px;background:#2b2b2b;padding:10px;overflow:auto;border-right:1px solid #444}
-
 .btn{width:100%;padding:8px;margin:4px 0;background:#3a3a3a;border:none;color:#fff;border-radius:6px;cursor:pointer}
-.btn:hover{background:#555}
-
 .card{background:#333;padding:8px;margin-bottom:10px;border-radius:8px}
 
-input,textarea{
-width:100%;
-margin:3px 0;
-background:#222;
-border:1px solid #555;
-color:#fff;
-border-radius:4px;
-padding:4px;
+/* 调色板 */
+.palette{display:flex;gap:6px;margin:5px 0}
+.colorBox{
+width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid #555
 }
+.colorBox:hover{border:2px solid #fff}
 
-label{font-size:12px;color:#aaa}
-
+/* 画布 */
 .canvasBox{flex:1;display:flex;align-items:center;justify-content:center;background:#111}
 </style>
 </head>
@@ -42,7 +36,6 @@ label{font-size:12px;color:#aaa}
 
 <button class="btn" onclick="save()">💾 保存</button>
 <button class="btn" onclick="load()">📂 读取</button>
-<button class="btn" onclick="exportImg()">📤 导出图片</button>
 
 </div>
 
@@ -56,46 +49,51 @@ const x=c.getContext("2d")
 c.width=900
 c.height=900
 
-const layerWidth=50
+// 调色板
+const palette=["#000","#c0392b","#2980b9","#27ae60","#f39c12","#8e44ad"]
 
 let state={
 layers:[
-{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:18,color:"#000000"},
-{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000000"}
+{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:18,color:"#000",w:60},
+{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000",w:50}
 ]
 }
 
-// UI
+let hoverIndex=-1
+
 function buildUI(){
 const box=document.getElementById("layersUI")
 box.innerHTML=""
 
 state.layers.forEach((l,i)=>{
+let colorsHTML=palette.map(col=>
+`<div class="colorBox" style="background:${col}" onclick="setColor(${i},'${col}')"></div>`
+).join("")
+
 box.innerHTML+=`
 <div class="card">
 <b>第${i+1}层</b>
 <button onclick="removeLayer(${i})" style="float:right">✖</button>
 
-<label>分割</label>
-<input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+分割 <input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+字体 <input value="${l.size}" onchange="state.layers[${i}].size=this.value">
 
-<label>字体大小</label>
-<input value="${l.size}" onchange="state.layers[${i}].size=this.value">
+厚度 <input value="${l.w}" onchange="state.layers[${i}].w=this.value">
 
-<label>文字颜色</label>
-<input type="color" value="${l.color}" onchange="state.layers[${i}].color=this.value">
+<div class="palette">${colorsHTML}</div>
 
-<label>文字</label>
 <textarea onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
 </div>
 `
 })
 }
 
-buildUI()
+function setColor(i,col){
+state.layers[i].color=col
+}
 
 function addLayer(){
-state.layers.push({n:12,data:"",size:12,color:"#000000"})
+state.layers.push({n:12,data:"",size:12,color:"#000",w:50})
 buildUI()
 }
 
@@ -103,6 +101,8 @@ function removeLayer(i){
 state.layers.splice(i,1)
 buildUI()
 }
+
+buildUI()
 
 // 旋转
 let r=0,v=0,d=false,last=0
@@ -113,8 +113,16 @@ last=Math.atan2(e.offsetY-450,e.offsetX-450)
 }
 window.onmouseup=()=>d=false
 window.onmousemove=e=>{
+let mx=e.offsetX,my=e.offsetY
+
+// 👉 计算鼠标所在宫位（高亮）
+let dx=mx-450,dy=my-450
+let ang=Math.atan2(dy,dx)+Math.PI/2
+if(ang<0) ang+=Math.PI*2
+hoverIndex=ang
+
 if(!d)return
-let a=Math.atan2(e.offsetY-450,e.offsetX-450)
+let a=Math.atan2(my-450,mx-450)
 v=a-last
 r+=v
 last=a
@@ -128,12 +136,6 @@ if(!d){r+=v;v*=0.95}
 
 x.clearRect(0,0,900,900)
 
-// 中心点
-x.beginPath()
-x.arc(450,450,8,0,Math.PI*2)
-x.fillStyle="#000"
-x.fill()
-
 x.save()
 x.translate(450,450)
 x.rotate(r)
@@ -142,8 +144,7 @@ x.translate(-450,-450)
 let inner=80
 
 state.layers.forEach((l,i)=>{
-let outer=inner+layerWidth
-
+let outer=inner+Number(l.w)
 let arr=l.data.split(",")
 let step=Math.PI*2/l.n
 
@@ -151,16 +152,26 @@ x.strokeStyle="#000"
 x.fillStyle=l.color
 x.font=l.size+"px serif"
 
-// 分割线
 for(let j=0;j<l.n;j++){
 let a=j*step-Math.PI/2
 
+// 👉 高亮当前宫位
+if(hoverIndex>j*step && hoverIndex<(j+1)*step){
+x.fillStyle="rgba(255,0,0,0.2)"
+x.beginPath()
+x.moveTo(450,450)
+x.arc(450,450,outer,a,a+step)
+x.fill()
+x.fillStyle=l.color
+}
+
+// 分割
 x.beginPath()
 x.moveTo(450+Math.cos(a)*inner,450+Math.sin(a)*inner)
 x.lineTo(450+Math.cos(a)*outer,450+Math.sin(a)*outer)
 x.stroke()
 
-// 文字方向优化
+// 文字
 let mid=(inner+outer)/2
 let tx=450+Math.cos(a+step/2)*mid
 let ty=450+Math.sin(a+step/2)*mid
@@ -179,8 +190,6 @@ x.fillText(arr[j]||"",0,0)
 x.restore()
 }
 
-// 圆环
-x.lineWidth = i==0 ? 3 : 1
 x.beginPath()
 x.arc(450,450,outer,0,Math.PI*2)
 x.stroke()
@@ -191,22 +200,15 @@ inner=outer
 x.restore()
 
 // 指针
-x.fillStyle="#000"
 x.beginPath()
 x.moveTo(450,60)
 x.lineTo(440,100)
 x.lineTo(460,100)
 x.fill()
-
-// 角度
-let deg=(( -r*180/Math.PI)+360)%360
-x.fillStyle="#fff"
-x.fillText(deg.toFixed(1)+"°",450,470)
 }
 
 draw()
 
-// 存储
 function save(){
 localStorage.setItem("tool",JSON.stringify(state))
 alert("已保存")
@@ -214,14 +216,6 @@ alert("已保存")
 function load(){
 state=JSON.parse(localStorage.getItem("tool"))
 buildUI()
-}
-
-// 导出
-function exportImg(){
-let a=document.createElement("a")
-a.href=c.toDataURL()
-a.download="罗盘.png"
-a.click()
 }
 </script>
 
