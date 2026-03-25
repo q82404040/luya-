@@ -2,7 +2,7 @@
 <html>
 <body style="margin:0;display:flex;font-family:sans-serif;background:#f5f5f5">
 
-<!-- 左侧 -->
+<!-- 左侧控制 -->
 <div style="width:320px;padding:12px;background:#fff;border-right:1px solid #ddd;overflow:auto;height:100vh">
 
 <h3>罗盘制作工具</h3>
@@ -28,7 +28,8 @@
 <script>
 const c=document.getElementById("c")
 const x=c.getContext("2d")
-c.width=800;c.height=800
+c.width=800
+c.height=800
 
 let state={
 layers:[
@@ -37,16 +38,19 @@ layers:[
 ]
 }
 
+// 添加层
 function addLayer(){
 state.layers.push({n:12,r:200,data:""})
 buildUI()
 }
 
+// 删除层
 function removeLayer(i){
 state.layers.splice(i,1)
 buildUI()
 }
 
+// UI
 function buildUI(){
 const box=document.getElementById("layersUI")
 box.innerHTML=""
@@ -72,6 +76,7 @@ box.innerHTML+=`
 
 buildUI()
 
+// 旋转控制
 let r=0,v=0,d=false,last=0
 
 c.onmousedown=e=>{
@@ -87,8 +92,10 @@ r+=v
 last=a
 }
 
+// 绘制
 function draw(){
 requestAnimationFrame(draw)
+
 if(!d){r+=v;v*=0.95}
 
 x.clearRect(0,0,800,800)
@@ -98,27 +105,49 @@ x.translate(400,400)
 x.rotate(r)
 x.translate(-400,-400)
 
+// 👉 核心修复：环形分层绘制（不重叠）
+let inner = 0
+
 state.layers.forEach(l=>{
-let arr=l.data.split(",")
-let step=Math.PI*2/l.n
+let outer = l.r
+let arr = l.data.split(",")
+let step = Math.PI*2/l.n
 
 for(let i=0;i<l.n;i++){
-let a=i*step-Math.PI/2
+let a = i*step - Math.PI/2
 
+// 分割线（只在当前层）
 x.beginPath()
-x.moveTo(400,400)
-x.lineTo(400+Math.cos(a)*l.r,400+Math.sin(a)*l.r)
+x.moveTo(
+400 + Math.cos(a)*inner,
+400 + Math.sin(a)*inner
+)
+x.lineTo(
+400 + Math.cos(a)*outer,
+400 + Math.sin(a)*outer
+)
 x.stroke()
 
-let tx=400+Math.cos(a+step/2)*(l.r-20)
-let ty=400+Math.sin(a+step/2)*(l.r-20)
+// 文字位置（环中间）
+let midR = (inner + outer)/2
+let tx = 400 + Math.cos(a+step/2)*midR
+let ty = 400 + Math.sin(a+step/2)*midR
 
-x.fillText(arr[i]||"",tx,ty)
+x.fillText(arr[i]||"", tx, ty)
 }
 
+// 圆环边界
 x.beginPath()
-x.arc(400,400,l.r,0,Math.PI*2)
+x.arc(400,400,outer,0,Math.PI*2)
 x.stroke()
+
+if(inner>0){
+x.beginPath()
+x.arc(400,400,inner,0,Math.PI*2)
+x.stroke()
+}
+
+inner = outer
 })
 
 x.restore()
@@ -137,16 +166,19 @@ x.fillText(deg.toFixed(1)+"°",400,420)
 
 draw()
 
+// 保存
 function save(){
 localStorage.setItem("tool",JSON.stringify(state))
 alert("已保存")
 }
 
+// 读取
 function load(){
 state=JSON.parse(localStorage.getItem("tool"))
 buildUI()
 }
 
+// 导出
 function exportImg(){
 let a=document.createElement("a")
 a.href=c.toDataURL()
