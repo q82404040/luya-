@@ -54,7 +54,7 @@ justify-content:center;
 <body>
 
 <div class="panel">
-<h3>罗盘工具（稳定最终版）</h3>
+<h3>罗盘工具（最终稳定版）</h3>
 
 <button class="btn" onclick="addLayer()">添加层</button>
 
@@ -152,7 +152,7 @@ e.preventDefault()
 scale*=e.deltaY<0?1.1:0.9
 }
 
-// ===== 旋转（唯一交互）=====
+// ===== 旋转 =====
 c.onmousedown=e=>{
 rotating=true
 lastAngle=Math.atan2(e.offsetY-450,e.offsetX-450)
@@ -167,7 +167,7 @@ rotation+=a-lastAngle
 lastAngle=a
 }
 
-// ===== 点击选中（已修旋转）=====
+// ===== 点击（含取消高亮）=====
 c.onclick=e=>{
 let x=e.offsetX-450
 let y=e.offsetY-450
@@ -183,15 +183,24 @@ let angle=Math.atan2(ry,rx)
 if(angle<0) angle+=Math.PI*2
 
 let inner=80
+let found=false
 
 state.layers.forEach((l,li)=>{
 let outer=inner+l.w
+
 if(dist>inner*scale && dist<outer*scale){
 let step=2*Math.PI/l.n
 selected={layer:li,index:Math.floor(angle/step)}
+found=true
 }
+
 inner=outer
 })
+
+// ⭐ 空白点击取消
+if(!found){
+selected=null
+}
 }
 
 // ===== 绘制 =====
