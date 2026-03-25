@@ -5,35 +5,12 @@
 <style>
 body{margin:0;display:flex;height:100vh;font-family:sans-serif;background:#1e1e1e;color:#eee}
 
-/* 左侧面板 */
-.panel{
-width:320px;
-background:#2b2b2b;
-padding:10px;
-overflow:auto;
-border-right:1px solid #444;
-}
+.panel{width:320px;background:#2b2b2b;padding:10px;overflow:auto;border-right:1px solid #444}
 
-h3{margin:5px 0 10px}
-
-.btn{
-width:100%;
-padding:8px;
-margin:4px 0;
-background:#3a3a3a;
-border:none;
-color:#fff;
-border-radius:6px;
-cursor:pointer;
-}
+.btn{width:100%;padding:8px;margin:4px 0;background:#3a3a3a;border:none;color:#fff;border-radius:6px;cursor:pointer}
 .btn:hover{background:#555}
 
-.card{
-background:#333;
-padding:8px;
-margin-bottom:10px;
-border-radius:8px;
-}
+.card{background:#333;padding:8px;margin-bottom:10px;border-radius:8px}
 
 input,textarea{
 width:100%;
@@ -47,14 +24,7 @@ padding:4px;
 
 label{font-size:12px;color:#aaa}
 
-/* 画布区 */
-.canvasBox{
-flex:1;
-display:flex;
-align-items:center;
-justify-content:center;
-background:#111;
-}
+.canvasBox{flex:1;display:flex;align-items:center;justify-content:center;background:#111}
 </style>
 </head>
 
@@ -90,8 +60,8 @@ const layerWidth=50
 
 let state={
 layers:[
-{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:18,color:"#ffffff"},
-{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#dddddd"}
+{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:18,color:"#000000"},
+{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000000"}
 ]
 }
 
@@ -109,11 +79,11 @@ box.innerHTML+=`
 <label>分割</label>
 <input value="${l.n}" onchange="state.layers[${i}].n=this.value">
 
-<label>字体</label>
+<label>字体大小</label>
 <input value="${l.size}" onchange="state.layers[${i}].size=this.value">
 
-<label>颜色</label>
-<input value="${l.color}" onchange="state.layers[${i}].color=this.value">
+<label>文字颜色</label>
+<input type="color" value="${l.color}" onchange="state.layers[${i}].color=this.value">
 
 <label>文字</label>
 <textarea onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
@@ -125,7 +95,7 @@ box.innerHTML+=`
 buildUI()
 
 function addLayer(){
-state.layers.push({n:12,data:"",size:12,color:"#ccc"})
+state.layers.push({n:12,data:"",size:12,color:"#000000"})
 buildUI()
 }
 
@@ -158,15 +128,9 @@ if(!d){r+=v;v*=0.95}
 
 x.clearRect(0,0,900,900)
 
-// 背景
-x.beginPath()
-x.arc(450,450,420,0,Math.PI*2)
-x.fillStyle="#f5f1e6"
-x.fill()
-
 // 中心点
 x.beginPath()
-x.arc(450,450,10,0,Math.PI*2)
+x.arc(450,450,8,0,Math.PI*2)
 x.fillStyle="#000"
 x.fill()
 
@@ -196,7 +160,7 @@ x.moveTo(450+Math.cos(a)*inner,450+Math.sin(a)*inner)
 x.lineTo(450+Math.cos(a)*outer,450+Math.sin(a)*outer)
 x.stroke()
 
-// 文字（防倒 + 朝圆心）
+// 文字方向优化
 let mid=(inner+outer)/2
 let tx=450+Math.cos(a+step/2)*mid
 let ty=450+Math.sin(a+step/2)*mid
