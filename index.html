@@ -4,21 +4,62 @@
 <meta charset="utf-8">
 <style>
 body{margin:0;display:flex;height:100vh;background:#1e1e1e;font-family:sans-serif}
-.panel{width:320px;background:#2b2b2b;padding:10px;color:#fff;overflow:auto}
-.btn{width:100%;padding:8px;margin:4px 0;background:#444;border:none;color:#fff;border-radius:6px;cursor:pointer}
-textarea{width:100%;margin-top:5px;background:#222;color:#fff;border:1px solid #555}
-.palette{display:flex;gap:6px;margin:6px 0}
-.color{width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid #666}
-.canvasBox{flex:1;display:flex;align-items:center;justify-content:center}
+
+.panel{
+width:320px;
+background:#2b2b2b;
+padding:10px;
+color:#fff;
+overflow:auto;
+}
+
+.btn{
+width:100%;
+padding:8px;
+margin:4px 0;
+background:#444;
+border:none;
+color:#fff;
+border-radius:6px;
+cursor:pointer;
+}
+
+textarea{
+width:100%;
+margin-top:5px;
+background:#222;
+color:#fff;
+border:1px solid #555;
+}
+
+.palette{
+display:flex;
+gap:6px;
+margin:6px 0;
+}
+
+.color{
+width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid #666
+}
+
+.canvasBox{
+flex:1;
+display:flex;
+align-items:center;
+justify-content:center;
+}
 </style>
 </head>
 
 <body>
 
 <div class="panel">
-<h3>罗盘工具（稳定版）</h3>
+<h3>罗盘工具（稳定最终版）</h3>
+
 <button class="btn" onclick="addLayer()">添加层</button>
+
 <div id="layersUI"></div>
+
 <button class="btn" onclick="exportPNG()">导出PNG</button>
 </div>
 
@@ -34,11 +75,8 @@ c.height=900
 
 let scale=1
 let rotation=0
-let offsetX=0
-let offsetY=0
-
-let dragging=false
 let rotating=false
+let lastAngle=0
 let selected=null
 
 const palette=["#000","#c0392b","#2980b9","#27ae60","#f39c12","#8e44ad"]
@@ -65,9 +103,12 @@ box.innerHTML+=`
 <div style="background:#333;padding:8px;margin:8px 0;border-radius:6px">
 <b>第${i+1}层</b>
 <button onclick="removeLayer(${i})" style="float:right">✖</button>
+
 <br>分割 <input value="${l.n}" onchange="updateLayer(${i},'n',this.value)">
 <br>厚度 <input value="${l.w}" onchange="updateLayer(${i},'w',this.value)">
+
 <div class="palette">${colors}</div>
+
 <textarea onchange="updateLayer(${i},'data',this.value)">${l.data}</textarea>
 </div>
 `
@@ -94,7 +135,7 @@ buildUI()
 
 buildUI()
 
-// ===== 字体适配 =====
+// ===== 字号自适应 =====
 function fitFont(ctx,text,maxW,maxH){
 let size=maxH
 while(size>5){
@@ -105,41 +146,37 @@ size--
 return size
 }
 
-// ===== 交互 =====
+// ===== 缩放 =====
 c.onwheel=e=>{
 e.preventDefault()
 scale*=e.deltaY<0?1.1:0.9
 }
 
+// ===== 旋转（唯一交互）=====
 c.onmousedown=e=>{
-if(e.button===2) rotating=true
-else dragging=true
+rotating=true
+lastAngle=Math.atan2(e.offsetY-450,e.offsetX-450)
 }
 
-window.onmouseup=()=>{dragging=false;rotating=false}
+window.onmouseup=()=>rotating=false
 
 window.onmousemove=e=>{
-if(dragging){
-offsetX+=e.movementX*0.9
-offsetY+=e.movementY*0.9
-}
-if(rotating){
-rotation+=e.movementX*0.008
-}
+if(!rotating) return
+let a=Math.atan2(e.offsetY-450,e.offsetX-450)
+rotation+=a-lastAngle
+lastAngle=a
 }
 
-c.oncontextmenu=e=>e.preventDefault()
-
-// ===== 点击修正（考虑旋转）=====
+// ===== 点击选中（已修旋转）=====
 c.onclick=e=>{
-let x0=(e.offsetX-450-offsetX)/scale
-let y0=(e.offsetY-450-offsetY)/scale
+let x=e.offsetX-450
+let y=e.offsetY-450
 
 // 逆旋转
 let cos=Math.cos(-rotation)
 let sin=Math.sin(-rotation)
-let rx=x0*cos-y0*sin
-let ry=x0*sin+y0*cos
+let rx=x*cos-y*sin
+let ry=x*sin+y*cos
 
 let dist=Math.sqrt(rx*rx+ry*ry)
 let angle=Math.atan2(ry,rx)
@@ -149,7 +186,7 @@ let inner=80
 
 state.layers.forEach((l,li)=>{
 let outer=inner+l.w
-if(dist>inner && dist<outer){
+if(dist>inner*scale && dist<outer*scale){
 let step=2*Math.PI/l.n
 selected={layer:li,index:Math.floor(angle/step)}
 }
@@ -160,36 +197,15 @@ inner=outer
 // ===== 绘制 =====
 function draw(){
 requestAnimationFrame(draw)
-
 ctx.clearRect(0,0,900,900)
 
 // 白底
 ctx.fillStyle="#fff"
 ctx.fillRect(0,0,900,900)
 
-// ===== 刻度（不随缩放）=====
 ctx.save()
+
 ctx.translate(450,450)
-ctx.strokeStyle="#000"
-
-for(let i=0;i<360;i+=10){
-let a=i*Math.PI/180
-let r1=360
-let r2=i%30==0?380:370
-ctx.beginPath()
-ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1)
-ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2)
-ctx.stroke()
-
-if(i%90==0){
-ctx.fillText(i+"°",Math.cos(a)*400,Math.sin(a)*400)
-}
-}
-ctx.restore()
-
-// ===== 罗盘 =====
-ctx.save()
-ctx.translate(450+offsetX,450+offsetY)
 ctx.scale(scale,scale)
 ctx.rotate(rotation)
 
