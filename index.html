@@ -1,28 +1,28 @@
 <!DOCTYPE html>
 <html>
-<body style="margin:0;display:flex;font-family:sans-serif">
+<body style="margin:0;display:flex;font-family:sans-serif;background:#f5f5f5">
 
-<!-- 左侧：后台 -->
-<div style="width:320px;padding:10px;border-right:1px solid #ccc;overflow:auto;height:100vh">
+<!-- 左侧 -->
+<div style="width:320px;padding:12px;background:#fff;border-right:1px solid #ddd;overflow:auto;height:100vh">
 
-<h3>罗盘后台系统</h3>
+<h3>罗盘制作工具</h3>
 
-<select id="templateList"></select>
-<button onclick="save()">保存模板</button>
-<button onclick="del()">删除</button>
-
-<hr>
-
-<button onclick="addLayer()">➕ 添加层</button>
+<button onclick="addLayer()" style="width:100%;margin-bottom:10px">➕ 添加层</button>
 
 <div id="layersUI"></div>
 
 <hr>
-<button onclick="exportImg()">导出图片</button>
+
+<button onclick="save()" style="width:48%">保存</button>
+<button onclick="load()" style="width:48%">读取</button>
+
+<hr>
+
+<button onclick="exportImg()" style="width:100%">导出图片</button>
 
 </div>
 
-<!-- 右侧：画布 -->
+<!-- 画布 -->
 <canvas id="c"></canvas>
 
 <script>
@@ -37,45 +37,13 @@ layers:[
 ]
 }
 
-let db=JSON.parse(localStorage.getItem("compassDB")||"{}")
-
-function refreshTemplates(){
-const sel=document.getElementById("templateList")
-sel.innerHTML=""
-for(let k in db){
-let o=document.createElement("option")
-o.value=k
-o.text=k
-sel.appendChild(o)
-}
-}
-
-function save(){
-let name=prompt("模板名称")
-if(!name)return
-db[name]=JSON.parse(JSON.stringify(state))
-localStorage.setItem("compassDB",JSON.stringify(db))
-refreshTemplates()
-}
-
-function del(){
-let name=document.getElementById("templateList").value
-delete db[name]
-localStorage.setItem("compassDB",JSON.stringify(db))
-refreshTemplates()
-}
-
-function loadTemplate(){
-let name=document.getElementById("templateList").value
-if(!db[name])return
-state=JSON.parse(JSON.stringify(db[name]))
+function addLayer(){
+state.layers.push({n:12,r:200,data:""})
 buildUI()
 }
 
-document.getElementById("templateList").onchange=loadTemplate
-
-function addLayer(){
-state.layers.push({n:12,r:200,data:""})
+function removeLayer(i){
+state.layers.splice(i,1)
 buildUI()
 }
 
@@ -85,18 +53,24 @@ box.innerHTML=""
 
 state.layers.forEach((l,i)=>{
 box.innerHTML+=`
-<hr>
-第${i+1}层
-<br>分割：<input value="${l.n}" onchange="state.layers[${i}].n=this.value">
-<br>半径：<input value="${l.r}" onchange="state.layers[${i}].r=this.value">
+<div style="background:#fafafa;border:1px solid #ddd;border-radius:8px;padding:8px;margin-bottom:10px">
+<b>第${i+1}层</b>
+<button onclick="removeLayer(${i})" style="float:right">删除</button>
+
+<br>分割：
+<input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+
+<br>半径：
+<input value="${l.r}" onchange="state.layers[${i}].r=this.value">
+
 <br>文字：
-<textarea onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
+<textarea style="width:100%" onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
+</div>
 `
 })
 }
 
 buildUI()
-refreshTemplates()
 
 let r=0,v=0,d=false,last=0
 
@@ -115,7 +89,6 @@ last=a
 
 function draw(){
 requestAnimationFrame(draw)
-
 if(!d){r+=v;v*=0.95}
 
 x.clearRect(0,0,800,800)
@@ -163,6 +136,16 @@ x.fillText(deg.toFixed(1)+"°",400,420)
 }
 
 draw()
+
+function save(){
+localStorage.setItem("tool",JSON.stringify(state))
+alert("已保存")
+}
+
+function load(){
+state=JSON.parse(localStorage.getItem("tool"))
+buildUI()
+}
 
 function exportImg(){
 let a=document.createElement("a")
