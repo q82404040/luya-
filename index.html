@@ -4,10 +4,8 @@
 <meta charset="utf-8">
 <style>
 body{margin:0;display:flex;height:100vh;background:#1e1e1e;font-family:sans-serif}
-
-.panel{width:280px;background:#2b2b2b;padding:10px;color:#fff}
+.panel{width:260px;background:#2b2b2b;padding:10px;color:#fff}
 .btn{width:100%;padding:8px;margin:4px 0;background:#444;border:none;color:#fff;border-radius:6px}
-
 .canvasBox{flex:1;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
@@ -15,9 +13,9 @@ body{margin:0;display:flex;height:100vh;background:#1e1e1e;font-family:sans-seri
 <body>
 
 <div class="panel">
-<h3>罗盘工具</h3>
+<h3>罗盘工具（商业版）</h3>
 <button class="btn" onclick="addLayer()">添加层</button>
-<button class="btn" onclick="exportPNG()">导出</button>
+<button class="btn" onclick="exportPNG()">导出PNG</button>
 </div>
 
 <div class="canvasBox">
@@ -26,7 +24,7 @@ body{margin:0;display:flex;height:100vh;background:#1e1e1e;font-family:sans-seri
 
 <script>
 const c=document.getElementById("c")
-const x=c.getContext("2d")
+const ctx=c.getContext("2d")
 c.width=900
 c.height=900
 
@@ -47,17 +45,24 @@ layers:[
 ]
 }
 
-function addLayer(){
-state.layers.push({n:12,data:"",w:50})
+// ===== 字体自适应 =====
+function fitFontSize(ctx,text,maxWidth,maxHeight){
+let size=maxHeight
+ctx.font=size+"px serif"
+while(size>5){
+if(ctx.measureText(text).width<=maxWidth) break
+size--
+ctx.font=size+"px serif"
+}
+return size
 }
 
-// ===== 缩放 =====
+// ===== 交互 =====
 c.onwheel=e=>{
 e.preventDefault()
-scale *= e.deltaY<0 ? 1.1 : 0.9
+scale *= e.deltaY<0?1.1:0.9
 }
 
-// ===== 鼠标 =====
 c.onmousedown=e=>{
 if(e.button===2){
 rotating=true
@@ -65,35 +70,42 @@ rotating=true
 dragging=true
 }
 }
-window.onmouseup=()=>{dragging=false;rotating=false}
+
+window.onmouseup=()=>{
+dragging=false
+rotating=false
+}
 
 window.onmousemove=e=>{
 if(dragging){
-offsetX += e.movementX
-offsetY += e.movementY
+offsetX+=e.movementX
+offsetY+=e.movementY
 }
 if(rotating){
-rotation += e.movementX*0.01
+rotation+=e.movementX*0.01
 }
 }
+
+// 禁止右键菜单
+c.oncontextmenu=e=>e.preventDefault()
 
 // ===== 点击选中 =====
 c.onclick=e=>{
-let dx=e.offsetX-450-offsetX
-let dy=e.offsetY-450-offsetY
-let dist=Math.sqrt(dx*dx+dy*dy)
+let x0=(e.offsetX-450-offsetX)/scale
+let y0=(e.offsetY-450-offsetY)/scale
 
-let angle=Math.atan2(dy,dx)+Math.PI/2
+let dist=Math.sqrt(x0*x0+y0*y0)
+let angle=Math.atan2(y0,x0)
 if(angle<0) angle+=Math.PI*2
 
 let inner=80
 
 state.layers.forEach((l,li)=>{
 let outer=inner+l.w
-if(dist>inner*scale && dist<outer*scale){
+if(dist>inner && dist<outer){
 let step=2*Math.PI/l.n
-let index=Math.floor(angle/step)
-selected={layer:li,index}
+let idx=Math.floor(angle/step)
+selected={layer:li,index:idx}
 }
 inner=outer
 })
@@ -103,36 +115,41 @@ inner=outer
 function draw(){
 requestAnimationFrame(draw)
 
-x.clearRect(0,0,900,900)
+ctx.clearRect(0,0,900,900)
 
 // 白底
-x.fillStyle="#fff"
-x.fillRect(0,0,900,900)
+ctx.fillStyle="#fff"
+ctx.fillRect(0,0,900,900)
 
-x.save()
+ctx.save()
 
-x.translate(450+offsetX,450+offsetY)
-x.scale(scale,scale)
-x.rotate(rotation)
+ctx.translate(450+offsetX,450+offsetY)
+ctx.scale(scale,scale)
+ctx.rotate(rotation)
 
 // ===== 刻度环 =====
+ctx.strokeStyle="#000"
 for(let i=0;i<360;i+=10){
 let a=i*Math.PI/180
-let r1=350
-let r2=i%30==0?370:360
+let r1=360
+let r2=i%30==0?380:370
 
-x.beginPath()
-x.moveTo(Math.cos(a)*r1,Math.sin(a)*r1)
-x.lineTo(Math.cos(a)*r2,Math.sin(a)*r2)
-x.stroke()
+ctx.beginPath()
+ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1)
+ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2)
+ctx.stroke()
 
 if(i%90==0){
-x.fillText(i+"°",Math.cos(a)*390,Math.sin(a)*390)
+ctx.fillText(i+"°",Math.cos(a)*400,Math.sin(a)*400)
 }
 }
 
 // ===== 罗盘 =====
 let inner=80
+
+ctx.beginPath()
+ctx.arc(0,0,inner,0,Math.PI*2)
+ctx.stroke()
 
 state.layers.forEach((l,li)=>{
 let outer=inner+l.w
@@ -142,48 +159,63 @@ let step=2*Math.PI/l.n
 for(let i=0;i<l.n;i++){
 let a=i*step
 
-// 高亮选中
+// 高亮
 if(selected && selected.layer===li && selected.index===i){
-x.fillStyle="rgba(255,0,0,0.2)"
-x.beginPath()
-x.arc(0,0,outer,a,a+step)
-x.arc(0,0,inner,a+step,a,true)
-x.fill()
+ctx.fillStyle="rgba(255,0,0,0.2)"
+ctx.beginPath()
+ctx.arc(0,0,outer,a,a+step)
+ctx.arc(0,0,inner,a+step,a,true)
+ctx.fill()
 }
 
 // 分割线
-x.beginPath()
-x.moveTo(Math.cos(a)*inner,Math.sin(a)*inner)
-x.lineTo(Math.cos(a)*outer,Math.sin(a)*outer)
-x.stroke()
+ctx.beginPath()
+ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner)
+ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer)
+ctx.stroke()
+
+// ===== 字号自动填满 =====
+let text=arr[i]||""
+let mid=(inner+outer)/2
+let arcLen=step*mid
+let ringH=outer-inner
+
+let size=fitFontSize(ctx,text,arcLen*0.9,ringH*0.9)
+ctx.font=size+"px serif"
 
 // 文字
-let mid=(inner+outer)/2
-x.save()
-x.translate(Math.cos(a+step/2)*mid,Math.sin(a+step/2)*mid)
-x.rotate(a+step/2+Math.PI/2)
-x.fillText(arr[i]||"",0,0)
-x.restore()
+ctx.save()
+ctx.translate(Math.cos(a+step/2)*mid,Math.sin(a+step/2)*mid)
+ctx.rotate(a+step/2+Math.PI/2)
+ctx.textAlign="center"
+ctx.textBaseline="middle"
+ctx.fillStyle="#000"
+ctx.fillText(text,0,0)
+ctx.restore()
 }
 
-x.beginPath()
-x.arc(0,0,outer,0,Math.PI*2)
-x.stroke()
+ctx.beginPath()
+ctx.arc(0,0,outer,0,Math.PI*2)
+ctx.stroke()
 
 inner=outer
 })
 
-x.restore()
+ctx.restore()
 }
 
 draw()
 
+// ===== 导出 =====
 function exportPNG(){
-let url=c.toDataURL()
 let a=document.createElement("a")
-a.href=url
+a.href=c.toDataURL("image/png")
 a.download="罗盘.png"
 a.click()
+}
+
+function addLayer(){
+state.layers.push({n:12,data:"",w:50})
 }
 </script>
 
