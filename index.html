@@ -2,7 +2,6 @@
 <html>
 <body style="margin:0;display:flex;font-family:sans-serif;background:#f3f3f3">
 
-<!-- 控制面板 -->
 <div style="width:320px;background:#fff;padding:10px;border-right:1px solid #ddd;height:100vh;overflow:auto">
 
 <h3>罗盘工具</h3>
@@ -19,7 +18,6 @@
 
 </div>
 
-<!-- 画布 -->
 <canvas id="c"></canvas>
 
 <script>
@@ -28,16 +26,19 @@ const x=c.getContext("2d")
 c.width=800
 c.height=800
 
+// 每层厚度（核心）
+const layerWidth = 40
+
 let state={
 layers:[
-{n:8,r:300,data:"乾,兑,离,震,巽,坎,艮,坤",size:16,color:"#000"},
-{n:24,r:250,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000"}
+{n:8,data:"乾,兑,离,震,巽,坎,艮,坤",size:16,color:"#000"},
+{n:24,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬",size:12,color:"#000"}
 ]
 }
 
 // 添加层
 function addLayer(){
-state.layers.push({n:12,r:200,data:"",size:12,color:"#000"})
+state.layers.push({n:12,data:"",size:12,color:"#000"})
 buildUI()
 }
 
@@ -59,7 +60,6 @@ box.innerHTML+=`
 <button onclick="removeLayer(${i})" style="float:right">删除</button>
 
 <br>分割 <input value="${l.n}" onchange="state.layers[${i}].n=this.value">
-<br>半径 <input value="${l.r}" onchange="state.layers[${i}].r=this.value">
 
 <br>字体 <input value="${l.size}" onchange="state.layers[${i}].size=this.value">
 <br>颜色 <input value="${l.color}" onchange="state.layers[${i}].color=this.value">
@@ -89,7 +89,7 @@ r+=v
 last=a
 }
 
-// 绘制
+// 绘制（自动向外扩展）
 function draw(){
 requestAnimationFrame(draw)
 
@@ -102,10 +102,11 @@ x.translate(400,400)
 x.rotate(r)
 x.translate(-400,-400)
 
-let inner=0
+let inner = 80  // 起始半径
 
-state.layers.forEach(l=>{
-let outer=l.r
+state.layers.forEach((l,i)=>{
+let outer = inner + layerWidth
+
 let arr=l.data.split(",")
 let step=Math.PI*2/l.n
 
@@ -113,9 +114,9 @@ x.strokeStyle="#000"
 x.fillStyle=l.color
 x.font=l.size+"px sans-serif"
 
-// 分割
-for(let i=0;i<l.n;i++){
-let a=i*step-Math.PI/2
+// 分割线
+for(let j=0;j<l.n;j++){
+let a=j*step-Math.PI/2
 
 x.beginPath()
 x.moveTo(
@@ -128,32 +129,32 @@ x.lineTo(
 )
 x.stroke()
 
-// 文字（居中优化）
+// 文字
 let mid=(inner+outer)/2
 let tx=400+Math.cos(a+step/2)*mid
 let ty=400+Math.sin(a+step/2)*mid
 
 x.textAlign="center"
 x.textBaseline="middle"
-x.fillText(arr[i]||"",tx,ty)
+x.fillText(arr[j]||"",tx,ty)
 }
 
-// 圆
+// 圆环
 x.beginPath()
 x.arc(400,400,outer,0,Math.PI*2)
 x.stroke()
 
-inner=outer
+inner = outer
 })
 
 x.restore()
 
-// 👉 单一指针（已修复）
+// 指针
 x.fillStyle="#000"
 x.beginPath()
-x.moveTo(400,80)
-x.lineTo(390,110)
-x.lineTo(410,110)
+x.moveTo(400,60)
+x.lineTo(390,90)
+x.lineTo(410,90)
 x.fill()
 
 // 角度
