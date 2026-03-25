@@ -1,13 +1,176 @@
 <!DOCTYPE html>
-<html lang="zh">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FengShuiCompass-自定义罗盘</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+<html>
+<body style="margin:0;display:flex;font-family:sans-serif">
+
+<!-- 左侧：后台 -->
+<div style="width:320px;padding:10px;border-right:1px solid #ccc;overflow:auto;height:100vh">
+
+<h3>罗盘后台系统</h3>
+
+<select id="templateList"></select>
+<button onclick="save()">保存模板</button>
+<button onclick="del()">删除</button>
+
+<hr>
+
+<button onclick="addLayer()">➕ 添加层</button>
+
+<div id="layersUI"></div>
+
+<hr>
+<button onclick="exportImg()">导出图片</button>
+
+</div>
+
+<!-- 右侧：画布 -->
+<canvas id="c"></canvas>
+
+<script>
+const c=document.getElementById("c")
+const x=c.getContext("2d")
+c.width=800;c.height=800
+
+let state={
+layers:[
+{n:8,r:300,data:"乾,兑,离,震,巽,坎,艮,坤"},
+{n:24,r:250,data:"子,癸,丑,艮,寅,甲,卯,乙,辰,巽,巳,丙,午,丁,未,坤,申,庚,酉,辛,戌,乾,亥,壬"}
+]
+}
+
+let db=JSON.parse(localStorage.getItem("compassDB")||"{}")
+
+function refreshTemplates(){
+const sel=document.getElementById("templateList")
+sel.innerHTML=""
+for(let k in db){
+let o=document.createElement("option")
+o.value=k
+o.text=k
+sel.appendChild(o)
+}
+}
+
+function save(){
+let name=prompt("模板名称")
+if(!name)return
+db[name]=JSON.parse(JSON.stringify(state))
+localStorage.setItem("compassDB",JSON.stringify(db))
+refreshTemplates()
+}
+
+function del(){
+let name=document.getElementById("templateList").value
+delete db[name]
+localStorage.setItem("compassDB",JSON.stringify(db))
+refreshTemplates()
+}
+
+function loadTemplate(){
+let name=document.getElementById("templateList").value
+if(!db[name])return
+state=JSON.parse(JSON.stringify(db[name]))
+buildUI()
+}
+
+document.getElementById("templateList").onchange=loadTemplate
+
+function addLayer(){
+state.layers.push({n:12,r:200,data:""})
+buildUI()
+}
+
+function buildUI(){
+const box=document.getElementById("layersUI")
+box.innerHTML=""
+
+state.layers.forEach((l,i)=>{
+box.innerHTML+=`
+<hr>
+第${i+1}层
+<br>分割：<input value="${l.n}" onchange="state.layers[${i}].n=this.value">
+<br>半径：<input value="${l.r}" onchange="state.layers[${i}].r=this.value">
+<br>文字：
+<textarea onchange="state.layers[${i}].data=this.value">${l.data}</textarea>
+`
+})
+}
+
+buildUI()
+refreshTemplates()
+
+let r=0,v=0,d=false,last=0
+
+c.onmousedown=e=>{
+d=true
+last=Math.atan2(e.offsetY-400,e.offsetX-400)
+}
+window.onmouseup=()=>d=false
+window.onmousemove=e=>{
+if(!d)return
+let a=Math.atan2(e.offsetY-400,e.offsetX-400)
+v=a-last
+r+=v
+last=a
+}
+
+function draw(){
+requestAnimationFrame(draw)
+
+if(!d){r+=v;v*=0.95}
+
+x.clearRect(0,0,800,800)
+
+x.save()
+x.translate(400,400)
+x.rotate(r)
+x.translate(-400,-400)
+
+state.layers.forEach(l=>{
+let arr=l.data.split(",")
+let step=Math.PI*2/l.n
+
+for(let i=0;i<l.n;i++){
+let a=i*step-Math.PI/2
+
+x.beginPath()
+x.moveTo(400,400)
+x.lineTo(400+Math.cos(a)*l.r,400+Math.sin(a)*l.r)
+x.stroke()
+
+let tx=400+Math.cos(a+step/2)*(l.r-20)
+let ty=400+Math.sin(a+step/2)*(l.r-20)
+
+x.fillText(arr[i]||"",tx,ty)
+}
+
+x.beginPath()
+x.arc(400,400,l.r,0,Math.PI*2)
+x.stroke()
+})
+
+x.restore()
+
+// 指针
+x.beginPath()
+x.moveTo(400,60)
+x.lineTo(390,90)
+x.lineTo(410,90)
+x.fill()
+
+// 角度
+let deg=(( -r*180/Math.PI)+360)%360
+x.fillText(deg.toFixed(1)+"°",400,420)
+}
+
+draw()
+
+function exportImg(){
+let a=document.createElement("a")
+a.href=c.toDataURL()
+a.download="罗盘.png"
+a.click()
+}
+</script>
+
+</body>
 </html>
