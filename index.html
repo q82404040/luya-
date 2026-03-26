@@ -16,7 +16,7 @@ textarea{width:100%;margin-top:5px;background:#222;color:#fff;border:1px solid #
 <body>
 
 <div class="panel">
-<h3>罗盘工具（弧形排版版）</h3>
+<h3>罗盘工具（最终正确版）</h3>
 <button class="btn" onclick="addLayer()">添加层</button>
 <div id="layersUI"></div>
 <button class="btn" onclick="exportPNG()">导出PNG</button>
@@ -108,6 +108,7 @@ if(!found)selected=null
 function draw(){
 requestAnimationFrame(draw)
 ctx.clearRect(0,0,900,900)
+
 ctx.fillStyle="#fff"
 ctx.fillRect(0,0,900,900)
 
@@ -117,6 +118,7 @@ ctx.scale(scale,scale)
 ctx.rotate(rotation)
 
 let inner=80
+
 ctx.beginPath()
 ctx.arc(0,0,inner,0,Math.PI*2)
 ctx.stroke()
@@ -146,31 +148,25 @@ ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner)
 ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer)
 ctx.stroke()
 
-// ===== 真·弧形排版 =====
+// ===== 外→内弧形排版 =====
 let text=arr[i]||""
 let chars=text.split("")
 let height=outer-inner
 let gap=height/(chars.length+1)
 
-// 字号
 let size=Math.min(gap*0.8, step*((inner+outer)/2)*0.6)
 ctx.font=size+"px serif"
 ctx.fillStyle=l.color
 
 for(let j=0;j<chars.length;j++){
-let r=inner+gap*(j+1)
+let r=outer-gap*(j+1)
 
 ctx.save()
-
 ctx.translate(Math.cos(mid)*r,Math.sin(mid)*r)
-
-// ⭐关键：字朝圆心
 ctx.rotate(mid+Math.PI/2)
-
 ctx.textAlign="center"
 ctx.textBaseline="middle"
 ctx.fillText(chars[j],0,0)
-
 ctx.restore()
 }
 
