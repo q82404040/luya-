@@ -54,7 +54,7 @@ justify-content:center;
 <body>
 
 <div class="panel">
-<h3>陆压罗盘</h3>
+<h3>罗盘工具（竖排版）</h3>
 
 <button class="btn" onclick="addLayer()">添加层</button>
 
@@ -135,12 +135,14 @@ buildUI()
 
 buildUI()
 
-// ===== 字号自适应 =====
-function fitFont(ctx,text,maxW,maxH){
-let size=maxH
+// ===== 竖排字号计算 =====
+function fitVerticalFont(ctx,chars,maxH,maxW){
+let size=maxH/chars.length
 while(size>5){
 ctx.font=size+"px serif"
-if(ctx.measureText(text).width<=maxW) return size
+if(size*chars.length<=maxH && ctx.measureText(chars[0]||"字").width<=maxW){
+return size
+}
 size--
 }
 return size
@@ -167,12 +169,11 @@ rotation+=a-lastAngle
 lastAngle=a
 }
 
-// ===== 点击（含取消高亮）=====
+// ===== 点击 =====
 c.onclick=e=>{
 let x=e.offsetX-450
 let y=e.offsetY-450
 
-// 逆旋转
 let cos=Math.cos(-rotation)
 let sin=Math.sin(-rotation)
 let rx=x*cos-y*sin
@@ -187,20 +188,15 @@ let found=false
 
 state.layers.forEach((l,li)=>{
 let outer=inner+l.w
-
 if(dist>inner*scale && dist<outer*scale){
 let step=2*Math.PI/l.n
 selected={layer:li,index:Math.floor(angle/step)}
 found=true
 }
-
 inner=outer
 })
 
-// ⭐ 空白点击取消
-if(!found){
-selected=null
-}
+if(!found) selected=null
 }
 
 // ===== 绘制 =====
@@ -208,7 +204,6 @@ function draw(){
 requestAnimationFrame(draw)
 ctx.clearRect(0,0,900,900)
 
-// 白底
 ctx.fillStyle="#fff"
 ctx.fillRect(0,0,900,900)
 
@@ -234,7 +229,6 @@ ctx.fillStyle=l.color
 for(let i=0;i<l.n;i++){
 let a=i*step
 
-// 高亮
 if(selected && selected.layer===li && selected.index===i){
 ctx.fillStyle="rgba(255,0,0,0.2)"
 ctx.beginPath()
@@ -244,24 +238,27 @@ ctx.fill()
 ctx.fillStyle=l.color
 }
 
-// 分割线
 ctx.beginPath()
 ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner)
 ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer)
 ctx.stroke()
 
-// 文字
+// ===== 竖排文字 =====
 let text=arr[i]||""
+let chars=text.split("")
 let mid=(inner+outer)/2
-let size=fitFont(ctx,text,step*mid*0.9,(outer-inner)*0.9)
 
+let size=fitVerticalFont(ctx,chars,(outer-inner)*0.9,step*mid*0.9)
 ctx.font=size+"px serif"
+
 ctx.save()
 ctx.translate(Math.cos(a+step/2)*mid,Math.sin(a+step/2)*mid)
 ctx.rotate(a+step/2+Math.PI/2)
-ctx.textAlign="center"
-ctx.textBaseline="middle"
-ctx.fillText(text,0,0)
+
+for(let j=0;j<chars.length;j++){
+ctx.fillText(chars[j],0,(j-chars.length/2)*size)
+}
+
 ctx.restore()
 }
 
@@ -277,7 +274,6 @@ ctx.restore()
 
 draw()
 
-// ===== 导出 =====
 function exportPNG(){
 let a=document.createElement("a")
 a.href=c.toDataURL("image/png")
